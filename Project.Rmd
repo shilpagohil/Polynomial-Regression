@@ -1,0 +1,693 @@
+---
+title: "Diamonds Are Forever"
+author: "Shilpa Gohil, Jenny Kim, Brent Robinson, Zekai Shao"
+date: "December 3, 2019"
+output:
+  html_document:
+    df_print: paged
+geometry: left=2.54cm,right=2.54cm,top=2.54cm,bottom=2.54cm
+---
+
+<div style="margin-bottom:50px;">
+</div>
+
+```{r, echo = F}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+```{r, echo = F, message = F, warning = F}
+library(plyr)
+library(car)
+library(olsrr)
+library(GGally)
+library(ggplot2)
+library(leaps)
+library(lmtest)
+library(mctest)
+```
+
+## Introduction
+
+The global demand for diamonds in 2017 was \$82 billion US. Diamonds are improved from their rough produced state, which was only valued at \$16.6 billion US in 2017. This represents \$65.4 billion in value that is added to diamond value through the cutting, polishing, retailing and delivery process. For the distribution business cutting these diamonds and understanding what drives value in the end sale price of a diamond can be a critical business decision impacting millions of dollars of sales and profits. $\\$
+$\\$
+For consumers, diamonds are a major spending decision. Engaged couples typically spend 3 months and spend on average \$5,800 on a wedding ring with diamonds. For a retail customer, understanding the potential value of the investment they have put into a diamond can be important to making a choice that will not hobble them costly in the future. Further, in the unfortunate event of divorce, the sale of a diamond ring (or other diamond jewellery) can be a source of income which might be useful. Knowledge of sale prices and the factors that influence that price can be helpful knowledge for that transaction as well. $\\$
+$\\$
+With this background, we have engaged on an examination of the physical characteristics of diamonds that impact on diamond prices. Thus, given the multi-million dollar nature of the diamond business, we hope to gain a comprehensive understanding of how different variables (physical characteristics) associated with diamonds (carat, cut and many more) affect the price of a diamond. Our research question is therefore based on developing a statistical model in order to understand the effects of different predictor variables on the price of diamonds. This would further enable us to predict the price of diamonds given the values of different predictor variables. Such a model would be important not only for companies such as DeBeers and ALROSA that have a somewhat monopoly control over the value of diamonds but it would also be useful pricing resource for smaller, local companies such as Birks. From our model, we would expect different predictor variables to affect the price of diamonds (response variable) differently. Therefore, we would expect some predictor variables to be significant whereas others to be insignificant, some predictor variables may negatively impact the price of the diamonds whereas others variables would positively impact the price of the diamond, we may find some interactions between the different predictor variables so that the effect of a predictor variable on the response variable (price of diamond) is not constant over all the values of the other predictor variables. Considering the aforementioned and finding the best fit model will ultimately lead us to the best linear regression model that can then be used for prediction purposes.
+
+</br>
+
+## Dataset
+
+Our dataset contains 53,940 diamond sales and various physical characteristics of those diamonds at the time of their retail sales. The data was obtained from package 'ggplot2'. The factors recorded in the dataset are as follows:
+
+* carat - The weight of the diamond.
+* cut - A variable which describes the quality of the cut of the diamond from 'Ideal' to 'Fair' on a 5 point scale.
+* color - A variable which describes the color of the diamond on a 7 point scale from D ('best') to J ('worst'). 
+* clarity - A variable describing how clear the diamond is on an 8 point scale from IF (best) to I1 (worst).
+* depth - A variable calculating the 'depth percentage' of the diamond as a function of the depth, length and width of the diamond.
+* table - A measure of the top of the diamond relative to the diamonds widest point. 
+* x - The length of the diamond.
+* y - The width of the diamond.
+* z - The depth of the diamond.
+
+</br>
+
+## Methodology
+
+In order to develop a multiple regression statistical model for predicting purposes, we will conduct the following steps:
+
+* Determine if there is a relationship between the price of diamonds (in dollars) and other physical characteristics of diamonds (predictor variables listed under data). Testing the relationship between the price of diamonds (response variable) and the predictor variables using the overall F-test, followed by the Individual coefficients test (t-test) in order to establish a linear regression model with the most significant predictor variables. The Full Model test will enable us to determine whether or not the multiple regression model is any good at all. The individual coefficients test will help us confirm which individual coefficients we can drop in order to improve the model.
+* We can then estimate and interpret multiple regression coefficients of predictor variables using the least squares estimates in order to determine how these variables affect the response variable (the price of diamonds).
+* We can then check for significant interactions in the model. An interaction occurs whenever the effect of a predictor variable on a response variable (price of diamonds) is not constant over all of the values of the other predictor variables. 
+* We will then check for how well the model fits. For this, we will obtain the adjusted coefficient of determination for the model along with the estimation of standard error of residuals (RMSE).
+* We will confirm our results using the Backwards Selection Method (as explained later, the Stepwise Selection Procedure and the Forward Selection Procedure were inadequate at picking out the significant predictor variables as they had the same p-values). We also use the All-Possible-Regressions Selection Procedure in order to determine the best subset of variables to be included in our model. The four criteria used to determine this are: R-squared criterion, Adjusted r-squared or RMSE criterion, Mallow's Cp Criterion and AIC (Akaike's information criterion).
+* Based on GGally package for ggpairs function, we can build a higher order between the response and predictor variables in order to improve the model. We can subsequently check again if the adjusted r-squared and RMSE values of the model improve (fit the model) after building the higher-order model.
+* Lastly, we will conduct all necessary assumptions and conditions for the multiple regression model. These assumptions include: the linearity assumption using residual plots, the independence assumption, the equal variance assumption to identify whether homoscedasticity (error terms in the linear regression model have a constant variance) exists using scale-location plots and the Breusch-Pagan test, normality assumption using Q-Q plot, histogram of residuals and Shapiro-Wilk test, multicollinearity using scatter plot and the variance inflation factor (VIF), outliers or influential points using residual versus leverage plot, Cook's distance and leverage points.
+
+</br>
+
+## Data Exploration
+
+We first examined our dataset by taking a look at its structure.
+
+```{r, echo = T}
+diamonds = ggplot2::diamonds
+head(diamonds)
+```
+
+$\\$
+We noticed that 'cut', 'color', and 'clarity' were factors with various levels. At a glance, we may use them as categorical variables. However, since those levels were hierarchical, we considered those three variables as ordinal variables and converted their levels into numerical values, with 1 being the lowest level, 2 being the second lowest level, and so on.
+
+```{r, echo = T}
+diamonds$cut = as.numeric(as.character(revalue(diamonds$cut, c("Fair" = 1, "Good" = 2, "Very Good" = 3, "Premium" = 4, "Ideal" = 5))))
+diamonds$color = as.numeric(as.character(revalue(diamonds$color, c("J" = 1, "I" = 2, "H" = 3, "G" = 4, "F" = 5, "E" = 6, "D" = 7))))
+diamonds$clarity = as.numeric(as.character(revalue(diamonds$clarity, c("I1" = 1, "SI2" = 2, "SI1" = 3, "VS2" = 4, "VS1" = 5, "VVS2" = 6, "VVS1" = 7, "IF" = 8))))
+head(diamonds)
+```
+
+</br>
+
+## Initial Model Selection
+
+After converting the levels into numerical values, we fitted a full model and checked for any insignificant terms using individual $t$-test.
+
+```{r, echo = T}
+diamondsfull = lm(price ~ carat + cut + color + clarity + table + depth + x + y + z, data = diamonds)
+summary(diamondsfull)
+```
+$\\$
+From the output, we noticed variable 'z' was insignificant. Hence, we fitted a reduced model without 'z'.
+
+```{r, echo = T}
+diamondsreduce = lm(price ~ carat + cut + color + clarity + table + depth + x + y, data = diamonds)
+summary(diamondsreduce)
+```
+$\\$
+After removing 'z', all variables in the model were significant. Next, we used stepwise selection methods to find out the best predictors at predicting diamond prices.
+
+```{r, echo = F, error = T}
+diamondstepwise = ols_step_both_p(diamondsfull, pent = 0.05, prem = 0.1, details = FALSE)
+```
+
+```{r, echo = F, error = T}
+diamondsforward = ols_step_forward_p(diamondsfull, penter = 0.05, details = FALSE)
+```
+$\\$
+We were getting the same error message from both the stepwise selection and forward selection methods, because they relied on having distinguishable p-values to add variables to the model. Since 7 of the variables had a p-value of effectively 0, the algorithms were unable to distinguish between those variables.
+
+```{r, include = F}
+diamondsbackward = ols_step_backward_p(diamondsfull, prem = 0.1)
+```
+$\\$
+Backward selection suggested to keep all variables except variable 'z', which yielded the same model we obtained from individual $t$-test. Next, we proceeded onto the All-Possible-Regressions Selection Procedure. This is an objective screening procedure that uses four different criteria to allow for the selection of the best subset of variables in the model. The four criteria are:
+
+* The r-squared criterion
+* The adjusted r-squared criterion or RMSE criterion
+* Mallow's Cp criterion
+* AIC (Akaike's information criterion)
+
+The All-Possible-Regressions Selection Procedure:
+
+```{r, echo = T}
+#Using the full-model (method 1):
+ks=ols_step_best_subset(diamondsfull, details=TRUE)
+par(mfrow=c(2,2)) # split the plotting panel into a 2 x 2 grid
+plot(ks$cp,type = "o",pch=10, xlab="Number of Variables",ylab=
+"Cp")
+plot(ks$rsq,type = "o",pch=10, xlab="Number of Variables",ylab=
+"R^2")
+#plot(ks$rss, xlab="Number of Variables",ylab= "RMSE")
+plot(ks$aic,type = "o",pch=10, xlab="Number of Variables",ylab=
+"AIC")
+plot(ks$adjr,type = "o",pch=10, xlab="Number of Variables",ylab
+= "Adjusted R^2")
+```
+
+```{r, include = T}
+#Option2
+best.subset1<-regsubsets(price ~ carat + cut + color + clarity + table + depth + x + y + z, data = diamonds, nv=10)
+
+summary(best.subset1)
+reg.summary<-summary(best.subset1)
+# for the output interpretation
+rsquare<-c(reg.summary$rsq)
+cp<-c(reg.summary$cp)
+AdjustedR<-c(reg.summary$adjr2)
+RMSE<-c(reg.summary$rss)
+```
+
+```{r, echo = T}
+cbind(rsquare,cp,RMSE,AdjustedR)
+```
+$\\$
+For our results, we used 2 different libraries: olsrr and leaps. From the results of our output, we can see that the ideal model to determine the price of diamonds (response variable) would have 8 independent/predictor variables in it. The criteria for the above all-possible-regressions selection procedure measures as follows:
+
+1. R-squared criterion - As we can see from the output, r-squared increases when independent variables are added to the model. Therefore, the model with 9 independent variables has the highest r-squared value - however we do not choose this model as it is not the model with the lowest Cp value. 
+
+2. Adjusted r-squared - This is a better measure to use as compared to r-squared criteria because adjusted r-squared increase only if RMSE decreases. The model with 8 variables has one of the highest adjusted r-squared values (0.9069937). Model with 7 independent variables has the highest adjusted r-squared value however because the model with the 8 variables has significantly lower Cp value (cp = 8.66335 for 8 variable model and cp = 10.72811 for 7 variable model), we choose a model with 8 variables as the difference in adjusted r-squared is not very significant between the two models.
+
+3. Mallow's Cp Criterion - The Cp is a measure of the total mean square error and hence a small value of Cp means the model is relatively precise. A value of Cp near (p+1) where p is the total number of independent variables, is a property that indicates slight (or no) bias exists in the subset regression model. For our results, we obtained a Cp value of 8.66335 for the 8 variable model. This is the lowest Cp value which indicates that the model with 8 variables is the bet model.
+
+4. AIC (Akaike's information criterion) - When using the model to predict the price of diamonds, some information will be lost and Akaike's information criterion estimates the relative information lost by our model. Therefore, smaller values of AIC are preferred. As we can see from the olsrr library output, the model with 8 variables has the lowest AIC value (~920000) and it is significantly lower when compared to the AIC value of the model with 1 variable (AIC = ~940000). Thus the model with 8 independent variables has the lowest AIC value.
+
+Given these four criteria and their respective values, it can be established that a model with 8 independent variables will be the best model. $\\$
+$\\$
+Next, we are going to check if there is any multicollinearity within the 8 variables using VIF. $\\$
+$\\$
+
+```{r, echo = T}
+vif(diamondsreduce)
+```
+$\\$
+The output suggested that variables 'carat', 'x', and 'y' had high level of multicollinearity. We first took out 'x' since it had the largest VIF value.
+
+```{r, echo = T}
+diamondsreduce2 = lm(price ~ carat + cut + color + clarity + table + depth + y, data = diamonds)
+vif(diamondsreduce2)
+```
+$\\$
+After removing 'x', the VIF for 'carat' and 'y' were still considerably high. Since they had similar VIF values, and 'carat' was a much more common/well-known measurement of diamonds compared with 'y', the width of a diamond, we kept 'carat' in the model and removed 'y'.
+
+```{r, echo = T}
+diamondsreduce3 = lm(price ~ carat + cut + color + clarity + table + depth, data = diamonds)
+vif(diamondsreduce3)
+```
+$\\$
+After removing 'y', all variables had a VIF close to 1, which suggested small collinearities, but they would not impact the accuracy of our model.
+$\\$
+Therefore, we obtained our first order model which included variables 'carat', 'cut', 'color', 'clarity', 'table', and 'depth'.
+
+</br>
+
+## Interactive & Higher Order Model Building
+
+The next step was to check if we could improve our model by adding interactive terms to our first order model. The interactive model we proposed was the following:
+
+```{r, echo = T}
+interactivediamondsreduce3 = lm(price ~ (carat + cut + color + clarity + table + depth)^2, data = diamonds)
+summary(interactivediamondsreduce3)
+```
+$\\$
+To compare the reduced model with interaction model, a Partial-F test was conducted and we stated the following hypothesis:
+
+$$H_0: \text{Reduced model is true (with no interaction term)}$$
+$$H_A: \text{Larger model is true (with interaction term)}$$
+$\\$
+```{r, echo = T}
+anova(diamondsreduce3,interactivediamondsreduce3)
+```
+
+The two models were compared by computing the analysis of variance table (anova). From the anova table, the output showed $F_{cal}= 1241.7$ with $p-value=2.2 \times 10^{-16} < \alpha = 0.05$. Thus, we can reject the null hypothesis in support of the alternative and conclude that the larger model with the interactive terms is a better fit model. $\\$
+$\\$
+In addition to the Partial-F test, a t-test was conducted to test the individual interactive coefficients. $\\$
+$\\$
+We state the hypothesis testing for our individual interactive coefficient test:
+
+$$H_0: cut*clarity = 0$$
+$$H_A: cut*clarity \neq 0$$
+$$H_0: clarity*depth = 0$$
+$$H_A: clarity*depth \neq 0$$
+
+From the t-test, we observed 'cut\*clarity' variable having a $t-value=-0.846$ with a $p-value=0.39768$ and 'clarity\*depth' variable having a $t-value=1.081$ with a $p-value=0.27974$. The two interaction variables have a p-value greater than $\alpha=0.05$. Thus, we would reject our null hypothesis in support of the alternative and conclude that these two variables are insignificant in our interactive model. $\\$
+$\\$
+The two interaction terms were dropped from the model and another test was performed to analyze the significance of the reduced interactive model. $\\$
+$\\$
+The reduced interactive model we propose is the following:
+
+```{r, echo = T}
+finalinteractivemodel=lm(price ~ carat + cut + color + clarity + table + depth + carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*table + cut*depth + color*clarity + color*table + color*depth + clarity*table + table*depth, data=diamonds)
+summary(finalinteractivemodel)
+```
+$\\$
+All the independent variables had a p-value less than $\alpha=0.05$ and showed significance in the model. The RMSE decreased from 1234 to 1064 and $R^2_{adj}$ increased from 0.904 to 0.9289 when compared to the reduced model without the interactive terms. Therefore, the variation in price of the diamond that can be explained with this interaction model is 92.89%. $\\$
+$\\$
+We can also infer that adding interactive terms in the model has led to a better fit to the data. $\\$
+$\\$
+From the interactive model, higher order model was tested to investigate further improvement in the model. $\\$
+$\\$
+To observe the linear relationship between 'price' and each of the independent variables in the model, matrix of scatterplots were produced. From the scatter plot, the variables: 'cut', 'color', 'clarity', 'table', and 'depth' illustrated a linear relationship with 'price'; however, variable 'carat' displayed a slight non-linear relationship. Thus, a quadratic model by including 'carat' as a quadratic term with the interactive model was tested. $\\$
+
+```{r, echo = T}
+pairs(~price+carat+cut+color+clarity+table+depth, data=diamonds,panel=panel.smooth)
+```
+$\\$
+We tested the following quadratic model:
+
+```{r, echo = T}
+higherordermodel=lm(price~carat+I(carat^2)+ cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*table + cut*depth + color*clarity + color*table + color*depth + clarity*table + table*depth, data=diamonds)
+summary(higherordermodel)
+```
+$\\$
+From the output, we observed two insignificant interactive variables in the model: 'Color\*Table' and 'Color\*Depth'. Therefore, we removed these variables and tested the model again for improvement.
+
+```{r, echo = T}
+higherordermodel1=lm(price~carat+I(carat^2)+ cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*table + cut*depth + color*clarity + clarity*table + table*depth, data=diamonds)
+summary(higherordermodel1)
+```
+$\\$
+The p-values for all the variables in this quadratic model were less than $\alpha=0.05$ which infers that all regression coefficients are significantly non-zero. Furthermore, the RMSE decreased from 1064 to 902.9 and $R^2_{adj}$ increased from 0.9289 to 0.9488 when compared to the interaction model. Thus, we can conclude that including the quadratic term for 'Carat' with interaction terms led to an improvement in the fit of the data. 
+
+</br>
+
+## Assumptions
+
+It is important for us to check these assumptions about the variables used in our analysis as meeting the assumptions allows our results to be trustworthy. The multiple regression assumptions include:
+
+1. Linearity assumption - using residual plots
+2. Independence assumption
+3. The equal variance assumption to identify homoscedasticity - using scale-location plots, Breusch-Pagan test
+4. Normality assumption using Q-Q plot, histogram of residuals and Shapiro-Wilk Test
+5. Multicollinearity - using scatter plot and the variance inflation factor (VIF)
+6. Outliers and/or influential points using residual versus leverage plots, Cook's distance and leverage points.
+
+### Linearity Assumption
+
+The linear regression model assumes that there is a straight-line relationship between the predictors and the response. Therefore, if this is found not to be true, then all the conclusions that we draw from the fit are suspect and the prediction accuracy of the model is significantly reduced. We therefore used residual plots as a graphical tool for identifying non-linearity in our model. Hence we plot the residual plot for our final interaction model (higherorder1):
+
+```{r, echo = T, message = F}
+ggplot(higherordermodel1, aes(x=.fitted, y=.resid)) +
+  geom_point() + geom_smooth()+
+  geom_hline(yintercept = 0) 
+```
+$\\$
+Ideally, the residual plot should show no discernible pattern however from the output above, we can see quite a significant curve pattern on the residual plot. We therefore, added a higher order on the model (cubed) in order to improve the model. The results are shown below:
+
+```{r, echo = T}
+#cubic model
+cubic <-lm(price~carat+I(carat^2)+I(carat^3)+cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*table + cut*depth + color*clarity + clarity*table + table*depth, data=diamonds)
+summary(cubic)
+```
+$\\$
+We can see that adding a power of 3 to the carat predictor variable in the interaction model, does improve the fit of the model as the adjusted-r squared improved from 0.9488 to 0.9612 and the RMSE also improves from 902.9 to 785.3. The interaction between cut and table also becomes insignificant (p-value of the interaction is 0.0657 > 0.05, the default value of alpha). Therefore we remove this interaction from the model and plot the residual plot. $\\$
+$\\$
+We can now check the residual plot for this model:
+
+```{r, echo = T}
+#cubic model - removing insignificant interaction of cut and table.
+cubic_1 <-lm(price~carat+I(carat^2)+I(carat^3)+cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*depth + color*clarity + clarity*table + table*depth, data=diamonds)
+```
+
+```{r, echo = T, message = F}
+ggplot(cubic_1, aes(x=.fitted, y=.resid)) +
+  geom_point() + geom_smooth()+
+  geom_hline(yintercept = 0) 
+```
+$\\$
+We can see that adding a cubic power to the carat independent variable does improve the linearity assumption however, it is still not ideal. 
+After testing many different versions of the model including addition of power of 3 and 4 to the carat independent variable and fitting the model each time as well as plotting the residual plot in order to test whether the model had satisfied the linearity assumption, we used a non-linear transformation approach. We log transformed the response variable (price of diamonds) and used the predictor variable carat to include a power of 2 (second-order quadratic model that allows for curvature). $\\$
+$\\$
+Note: To allow for a more coherent flow of the project, we have omitted the several different trials of the models in order to come up with our final model. A long the way, we also removed any interactions that became insignificant. These trial models can be made available upon request.$\\$
+$\\$
+The model that we continued to test the linear regression assumptions is therefore:
+
+```{r, echo = T}
+final_diamonds <-lm(log(price)~carat+I(carat^2)+cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*depth + color*clarity  + table*depth + cut*table , data=diamonds)
+summary(final_diamonds)
+```
+
+```{r, echo = T}
+#The adjusted r-square value
+summary(final_diamonds)$r.squared 
+#The RMSE value
+sigma(final_diamonds)
+```
+$\\$
+As we can see from this model, the r-squared value is 0.9738 (which is significantly higher than the r-squared value of the final interaction model - 0.9488). The RMSE of this model has significantly decreased from 902.9 (from our interaction model) to 0.1642 in our final model. The clarity variable has become insignificant in this model - p-value of 0.80223  > 0.05 (default value of alpha). Despite this variable becoming insignificant, we keep this variable in the model due to the hierarchical principle. When the interaction terms of a particular predictor variable has very small p-values but the associated main effects do not, the hierarchical principal states that if we include those interactions in our model, we should also include the main effects, even if the p-values associated with their coefficients are not significant. Therefore, we keep the clarity predictor variable in the model. The only interaction we removed from our model due to insignificance is the clarity and table interaction. $\\$
+$\\$
+At this point we interpret the adjusted r-squared value as 0.9738, which implies that 97.38% of the variation in diamond price is explained by this model whereas the rest, 2.62% can be explained by other variables. $\\$
+$\\$
+RMSE = 0.1642 means that the standard deviation of the unexplained variance by our model is 0.1642. $\\$
+$\\$
+Plotting the residual plot again to test for linearity assumption using model:
+
+```{r, echo = T, message = T}
+#Option 1
+ggplot(final_diamonds, aes(x=.fitted, y=.resid)) +
+ geom_point() + geom_smooth()+
+ geom_hline(yintercept = 0)
+```
+
+```{r, echo = T}
+#Option 2
+plot(fitted(final_diamonds), residuals(final_diamonds),xlab="Fitted Values", ylab="Residuals")
+abline(h=0,lty=1)
+title("Residual vs Fitted")
+```
+$\\$
+As we can see form the output above, there is no pattern evident for the most part - there is the presence of a few outliers in the distribution of residuals (errors) versus the fitted values however, for the most part the linear assumption has been met. $\\$
+$\\$
+In order to proceed, we checked for outliers first, given the results of our residual plot from above. We therefore, plotted residuals versus leverage plots in order to check if there were any influential cases. Influential cases occur when the data has extreme values that influence the linear regression line and this means that the results would be much different if we either exclude or include these data points from our analysis. $\\$
+$\\$
+Our residuals versus leverage plots:
+
+```{r, echo = F}
+plot(final_diamonds, which = 5)
+```
+$\\$
+From the output above, we can see that the the data points 27131, 27631 and 27416 are influential cases. Therefore, to proceed we can remove these data points from our dataset and fit the model.
+
+```{r, echo = F}
+#Removing the influential cases 27416, 27131, 27631.
+diamonds_remove = diamonds[-c(27416, 27131, 27631),]
+nrow(diamonds_remove) #confirming values are removed
+nrow(diamonds)
+```
+$\\$
+Assuming these 3 influential cases occurred due to an error in data collection or recording we remove them and proceed with fitting the model (adjusted r-squared value) and RMSE:
+
+```{r, echo = F}
+final_model1<-lm(log(price)~carat+I(carat^2)+cut+color + clarity + table + depth+ carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*depth + color*clarity  + table*depth + cut*table , data=diamonds_remove)
+summary(final_model1)
+```
+$\\$
+From our output above, we can see that the adjusted r-squared value increases from 0.9738 to 0.9759 and our RMSE value now decreases to 0.1575. In our words, this means that the log price of diamonds will deviate from the true regression line by approximately 0.1575 dollars and therefore any prediction of the price of diamonds using this linear regression model would be off by only \$0.1575 dollars on average. This is a very acceptable prediction error when considering diamonds can cost thousands of dollars. $\\$
+$\\$
+After removing the outliers, we re-plot our residual plot again to test for linearity assumption using final model:
+
+```{r, echo = T, message = T}
+ggplot(final_model1, aes(x=.fitted, y=.resid)) +
+ geom_point() + geom_smooth()+
+ geom_hline(yintercept = 0)
+```
+$\\$
+From the output, we can now see almost no pattern in the residuals thus suggesting that the removal of outliers, addition of the quadratic term and addition of the logarithmic significantly improved our model. $\\$
+$\\$
+Since we have started with the influential points (due to the presence of influential points in our residual plots when testing for the linearity assumption), we continue with the outlier tests and outputs. $\\$
+$\\$
+Cooks Distance - Cook's Distance is the overall measure of influence that an outlying observation has on the estimated coefficients and was proposed by R. D. Cook. Large values of D(i) indicates that the observed Y(i) value has a strong influence on the estimated coefficients (since the residual, the leverage, or both will be large). $\\$
+$\\$
+Therefore, we can calculate and plot the Cook's Distance for both models; model with the outliers present and model without the outliers present:
+
+```{r, echo = T}
+diamonds[cooks.distance(final_diamonds) > 0.5,] #have Cook statistics larger than 0
+.5
+```
+$\\$
+The cases with high Cook's Distance is therefore: 26000, 27131, 27416 and 27631. It is important to note here that case 26000 was not found to be influential from the initial residual versus leverage plots. $\\$
+$\\$
+A graphical representation of this:
+
+```{r, echo = T}
+plot(final_diamonds, pch=18,col="red",which=c(4))
+```
+
+### Leverage points
+
+These are points that fall horizontally far from the line and can strongly influence the slope of the least squares line. If the high leverage points appear to influence the slope of the line, then we can call it an influential point. $\\$
+$\\$
+Therefore, we can calculate and graphically represent the leverage points:
+
+```{r, echo = T}
+lev=hatvalues(final_diamonds)
+p = length(coef(final_diamonds))
+n = nrow(diamonds)
+outlier = lev[lev>(2*p/n)]
+print(outlier)
+```
+
+```{r, echo = F}
+plot(rownames(diamonds),lev, main = "Leverage in Diamonds Dataset", xlab=
+"observation",
+ ylab = "Leverage Value")
+abline(h = 2 *p/n, lty = 1)
+abline(h = 3 *p/n, lty = 1)
+```
+
+As we can see there are a lot of leverage points in our data - this is to be expected as we have a very large dataset (53,940 diamond sales in total). It would be logistically difficult to investigate all these leverage points and hence we retain them for now. $\\$
+$\\$
+For our next assumption, we test the independence assumption - An important assumption of the linear regression model is that the error terms are uncorrelated (must be mutually independent). This violation can be checked by plotting the residuals against the
+order of occurrence (time plot of the residuals and looking for pattern). In our diamonds dataset, the price of diamonds was not related to time, so we can assume their measurements are independent. We also checked the displays of the regression residuals for evidence of patterns, trends or clumping and we found none of these aforementioned, hence suggesting independence of errors. $\\$
+$\\$
+We can now move onto testing the Equal Variance Assumption: This assumption of the linear regression model is that the error terms have a constant variance (homoscedasticity). Unfortunately, it is often the case that the variances of the error terms are non-constant. For instance, the variances of the error terms may increase with the value of the response. One can identify non-constant variances in the errors, or heteroscedasticity. Hence, heteroscedasticity means unequal scatter. In regression analysis, heteroscedasticity is a systematic change in the spread of the residuals over the range of measured values. $\\$
+$\\$
+Therefore, we can plot a scale-location plot between fitted value and standardized residuals to check for heteroscedasticity.
+
+```{r, echo = F, message = T}
+#residuals plot
+ggplot(final_model1, aes(x=.fitted, y=.resid)) +
+ geom_point() +
+ geom_hline(yintercept = 0) +
+ geom_smooth()+
+ ggtitle("Residual plot: Residual vs Fitted values") 
+```
+$\\$
+From the figure above, we can see that the residuals appear randomly spread and the red smooth line is horizontal thus we can say that the equal variance assumption has been met. 
+
+```{r, echo = F, message = T}
+#a scale location plot - option 2
+ggplot(final_model1, aes(x=.fitted, y=sqrt(abs(.stdresid)))) +
+ geom_point() +
+ geom_hline(yintercept = 0) +
+ geom_smooth()+
+ ggtitle("Scale-Location plot : Standardized Residual vs Fitted values")
+```
+
+```{r, echo = F}
+#Option 3
+plot(final_diamonds, which=3) #a scale location plot
+```
+$\\$
+From these output, we can see that the residuals tend to form a horizontal band and the horizontal red line indicates that the plot does not provide evidence to suggest heteroscedasticity exists.
+
+### Homoscedasticity Assumption
+
+We can conduct a more formal and mathematical method to detect heteroscedasticity using the Breusch-Pagan test. $\\$
+
+$H_0: \text{heteroscedasticity is not present (homoscedasticity)}$
+$H_A: \text{heteroscedasticity is present}$
+
+```{r, echo = T}
+#Breusch-Pagan test
+bptest(final_model1)
+```
+$\\$
+The output displays the Breusch-Pagan test that results from our final model. The p-value = $2.2 \times 10^{-16}$ < 0.05, indicating that we reject the null-hypothesis in favour of the alternative hypothesis. Therefore, we can say that our model does exhibit some heteroscedascity. However, as we can see from the scale-location plot, there is very little heteroscedascity and the model fit is very good so we consider this to be an acceptable level of heteroscedascity. $\\$
+$\\$
+The normality assumption: The multiple linear regression analysis requires that the errors between observed and predicted values (i.e., the residuals of the regression) should be normally distributed. This assumption may be checked by looking at a histogram, a normal probability plot or a Q-Q-Plot. $\\$
+$\\$
+To begin testing for the normality assumption, we carry out the Shapiro-Wilk test:
+$H_0: \text{the sample data are significantly normally distributed}$
+$H_A: \text{the sample data are not significantly normally distributed}$
+
+```{r, echo = F, error = T}
+#Testing for Normality
+shapiro.test(residuals(final_model1))
+```
+$\\$
+We can see from the output above that the Shapiro-Wilk test cannot be conducted for sample sizes more than 5000. Because our sample size contains 53,940 data points, we cannot perform the Shapiro-Wilk test for analysis.
+
+```{r, echo = T}
+#option 1 (histogram)
+qplot(residuals(final_model1),
+ geom="histogram",
+ binwidth = 0.095,
+ main = "Histogram of residuals",
+ xlab = "residuals", color="red",
+ fill=I("blue"))
+```
+$\\$
+We can also plot a normal QQ plot:
+
+```{r, echo = F}
+#optional histogram
+par(mfrow=c(1,2))
+hist(residuals(final_model1))
+plot(final_model1, which=2) #a Normal plot
+```
+$\\$
+The outputs show that the residual data have normal distribution (from histogram and Q-Q plot). There are some points towards the tails that deviate from the reference line (outliers) however for the most part we can assume the normality assumption is met. Moreover, there is more than 25 data points and hence the Central Limit Theorem is invoked in which we assume that our data follows a normal distribution if we have a sample size of more than 25.
+
+### Multicollinearity Assumption
+
+Often, two or more of the independent variables used in the model for provide redundant information. That is, the independent variables will be correlated with each other.  When the independent variables are (linearly) correlated, we say that multicollinearity exists. In practice, it is not uncommon to observe correlations among the independent variables. However, a few problems arise when serious multicollinearity is present in the regression analysis. $\\$
+$\\$
+Multicollinearity causes the following two basic types of problems:
+
+1. The coefficient estimates can swing wildly based on which other independent variables are in the model. The coefficients become very sensitive to small changes in the model.
+2. Multicollinearity reduces the precision of the estimate coefficients, which weakens the statistical power of your regression model. We might not be able to trust the p-values to identify independent variables that are statistically significant.
+
+Multicollinearity of our model was checked in the beginning if our project due to some issues we had with Stepwise and Forward Selection methods (discussed in more detail in the findings and discussion section). 
+
+```{r, echo = T}
+diamondsreduce3 = lm(price ~ carat + cut + color + clarity + table + depth, data = diamonds)
+vif(diamondsreduce3)
+```
+$\\$
+From our output above, we can see that all the predictor variables have a VIF value very close to 1. This indicates that there is no collinearity between the independent variables. Due to VIF values of more than 20 in our very first full-model (diamondsfull), this was suggestive of critical levels of multicollinearity where coefficients are poorly estimated and p-values are questionable for some of the independent variables in our first-order model. Therefore, we decided to drop those variables at the very beginning and we proceeded with the statistical modelling procedure without those variables. One by one, we dropped the problematic variables while continuously checking for the VIF values. Therefore for our linear regression model, we dropped the following independent variables due to multicollinearity:
+
+* Variable x - the length of diamond in mm
+* Variable y - the width of the diamond in mm
+* Variable z - the depth of the diamond in mm
+
+Dropping these problematic variables from our model can usually done without much compromise to the regression model since the presence of collinearity implies that the information that these variables provide about the response variable (price of diamonds in dollars), is redundant in the presence of the other predictor variables. $\\$
+$\\$
+
+Therefore after checking all the linear regression assumptions and making the correct adjustments to our model, our final model is:
+```{r, include = F}
+final_model1<-lm(log(price) ~ carat + I(carat^2) + cut + color + clarity + table + depth + carat*cut + carat*color + carat*clarity + carat*table + carat*depth + cut*color + cut*depth + color*clarity + table*depth + cut*table, data=diamonds_remove)
+summary(final_model1)
+```
+
+$$
+\begin{aligned}
+\widehat{log(price)} = & \:\ 12.6996 + 5.1878carat - 0.9358carat^2 - 0.3839cut - 0.0179color + 0.0069clarity \\
+& \:\ - 0.1204table - 0.1318depth - 0.0105carat*cut + 0.0313carat*color + 0.0508carat*clarity \\
+& \:\ - 0.0121carat*table - 0.0092carat*depth + 0.0031cut*color + 0.0058cut*depth \\
+& \:\ + 0.0156color*clarity + 0.0020table*depth + 0.0009cut*table
+\end{aligned}
+$$
+
+As mentioned earlier, this is our best fit model as it has an adjusted r-squared value of 0.9759. This implies that 97.59% of the variation in diamond price is explained by this model whereas the rest, 2.62% can be explained by other factors. $\\$
+$\\$
+RMSE = 0.1575 means that the standard deviation of the unexplained variance by our model is 0.1575. In other words, this means that the actual log price of diamonds will deviate from the true regression line by approximately 0.1575 dollars and therefore any prediction of the price of diamonds using this linear regression model would be off by only \$0.1575 dollars on average. This is a very acceptable prediction error when considering diamonds can cost thousands of dollars. $\\$
+$\\$
+From the output above, we can also see that the p-values of all the variables are significant (all the variables have very small p-values and hence the p-values are all less than the default value of alpha at 0.05). $\\$
+$\\$
+Lastly, our model passes all the linear regression assumptions except for the equal variance assumption as our model has slight levels of heteroscedasticity. These levels of heteroscedasticity are however acceptable and we can now proceed with predictions from out model.
+
+</br>
+
+## Conclusion
+
+In conclusion, the final model is
+
+$$
+\begin{aligned}
+\widehat{log(price)} = & \:\ 12.6996 + 5.1878carat - 0.9358carat^2 - 0.3839cut - 0.0179color + 0.0069clarity \\
+& \:\ - 0.1204table - 0.1318depth - 0.0105carat*cut + 0.0313carat*color + 0.0508carat*clarity \\
+& \:\ - 0.0121carat*table - 0.0092carat*depth + 0.0031cut*color + 0.0058cut*depth \\
+& \:\ + 0.0156color*clarity + 0.0020table*depth + 0.0009cut*table
+\end{aligned}
+$$
+
+Carat: Carat has a number of complicated effects on price considering its higher order incorporation and 4 interaction terms. A more detailed discussion of the effect of carat is contained in the discussion below. $\\$
+$\\$
+Cut: The effect of cut on our model can be expressed as:
+$$
+(-0.3838824 - 0.0104976*carat + 0.0030686*color + 0.0057633*depth + 0.0008567*table)*cut
+$$
+
+For each 1 unit improvement in the cut of the diamond, the log price is predicted to change by -0.3838824 minus -0.0104976 times the weight of the diamond measured in carats plus 0.0030686 the color grade of the diamond plus 0.0057633 times the depth ratio of the diamond plus 0.0008567 times the table ratio of the diamond. $\\$
+$\\$
+Clarity: The effect of clarity on our model can be expressed as:
+$$
+(0.0069063 + 0.0508303*carat + 0.0156305*color)*clarity
+$$
+
+For each 1 level improvement in clarity, the log price is predicted to increase by 0.0069063 plus 0.058303 times the weight of the diamond measured in carats plus 0.0156305 times the color grade of the diamond. $\\$
+$\\$
+Table:  The effect of the Table variable on our model can be expressed as:
+$$
+(-0.1203639 - 0.0121342*carat + 0.0020410*depth + 0.0008567*cut)*table
+$$
+
+For each 1 point increase in the table ratio of a diamond, the log price is predicted to change by -0.1203639 minus -0.0121342 times the weight of the diamond measured in carats plus 0.0020410 times the depth ratio of the diamond plus 0.0008567 times the cut grade of the diamond. $\\$
+$\\$
+Depth: The effect of the Depth variable on our model can be expressed as:
+$$
+(-0.1317939 - 0.0092153*carat + 0.0020410*table)*depth
+$$
+
+For each 1 point increase in the depth ratio of a diamond, the log price is predicted to change by -0.1317939 minus 0.0092153 times the weight of the diamond measured in carats plus 0.0020410 times the table ratio of the diamond.
+
+</br>
+
+##Discussion
+
+```{r, include = F}
+newdata=data.frame(carat=0.7, cut=4, color=4, clarity=4, depth=61.8, table=57)
+logprice=predict(final_model1, newdata, interval='predict')
+print(logprice)
+price=exp(logprice)
+print(price)
+```
+
+```{r, include = F}
+newdata=data.frame(carat=.4, cut=4, color=4, clarity=4, depth=61.8, table=57)
+logprice=predict(final_model1, newdata, interval='predict')
+print(logprice)
+price=exp(logprice)
+print(price)
+```
+
+```{r, include = F}
+newdata=data.frame(carat=1.04, cut=4, color=4, clarity=4, depth=61.8, table=57)
+logprice=predict(final_model1, newdata, interval='predict')
+print(logprice)
+price=exp(logprice)
+print(price)
+```
+
+```{r, include = T}
+newdata=data.frame(carat=0.7, cut=5, color=6, clarity=3, depth=62.5, table=59)
+logprice=predict(final_model1, newdata, interval='predict')
+print(logprice)
+price=exp(logprice)
+print(price)
+```
+
+Having reviewed our model we found the following aspects of the outcome to be noteworthy. $\\$
+
+### 1. Bigger is better, or at least more expensive
+
+The variable carat measures the weight of the diamonds. As you will recall from the earlier portion of our report, we found that it was highly correlated with other variables included in the data set which measured the physical size of the diamond. This was not surprising as diamond density does not vary greatly by any of their other characteristics suchs as color or clarity. However, the model demonstrates that size, by its proxy weight measured in carats, is the biggest driver of the price. The coefficient on carat 5.1877935. The next largest coefficient, although interestingly by a negative coefficient, is -0.9357565 on carat squared. Even with the negative coefficient on the squared term, if all the other variables were 0 (resulting in the interaction term effects all having no effect on price) a 1 unit increase in carat still increases the log price by 4.252037. When you then consider the interaction terms, particularly carat and color and carat and clarity, you see the effect of carat playing out again. These terms have the next two biggest positive coefficients. $\\$
+$\\$
+You can see this effect further when you look at predicting prices with the model. A prediction based on values at the median from the data we have of:
+
+* carat=0.7
+* cut=4
+* color=4
+* clarity=4
+* depth=61.8
+* table=57
+
+produces a predicted average price of \$2,239.78, slighly below the median price in our dataset of \$2,401. However, by varying the carat up to the 3rd quartile value of 1.04 from this base model, raises the predicted average price up to \$5392.83, very close the third quartile of our price data at \$5,324. Lowering the carat value to the first quartile value of 0.4 lowers the predicted average price to $861.62, below the first quartile value in the data set at \$950. As a further comparison, we can lower the value of the variable with a positive coefficient on its non-interaction term in the model (clarity)to its third quartile value, while increasing the values of those with negative coefficients on their non-interaction terms to their 3rd quartile value, but hold carat to the median. This gives us the following hypothetical characteristics:
+
+* carat=0.7
+* cut=5
+* color=6
+* clarity=3
+* depth=62.5
+* table=59
+
+This results in a prediction of price of \$2,388.17. This demonstrates the extent to which size (measured in carats), over the other characteristics, drives the price of diamonds.
+
+### 2. This model has strong explanatory power 
+
+The adjusted Rsquared of this model is 0.9738. This means variation in our 5 variables and the higher order variations and interactions explains 97.59% of the variation in the dependent variable. Further, all the variables in the model would be considered significant when tested against an individual coefficient t-test at an alpha of 0.05. While the assumption of homoscedacticity underlying a linear regression fails a Breush-Pagan test. However, with the high adjusted R-Squared and the strong significance of our variables, we still conclude that this model is likely a sound predictor of diamond prices, particularly within the range of the data present in the dataset.
+
+### 3. Surprising First Order Coefficients
+
+Our variables for cut and color had negative coefficients in our model. These variables were ordered variables which in our dataset were provided with categorical descriptions. Cut varied from "Fair" to "Ideal". Color had 7 levels ranging from what the dataset describes as the "best" in D to the "worst" at J. As described above, these variables were recoded to ordered variables with numerical levels from 1 to 5 and 1 to 7 numerically in order to calculate and fit our model. Based on the descriptions of our variables we would have expected that as these characterstics of the diamonds improved, the price would go higher. However, the first level non-interaction variables for these two characteristics have negative coefficients. However, they also have interaction effects with positive coefficients. For color, it interacts to increase price as it improves with carat, cut and clarity. For cut, it interacts to increase price with color, depth and table, although it has a negative interaction with carat. It is difficult to map out all the different permutations and combinations which might lead to an increase or decrease in the price of a diamond as these variables change. However, that these variables which were presented as improving along a continuous scale do not lead to an unambiguous increase in the price was a surprise outcome.
+
+</br>
+
+## References
+
+De Beers Group, The Diamond Insight Report 2018 online. Retrieved from https://www.debeersgroup.com/~/media/Files/D/De-Beers-Group/documents/reports/insights/the-diamond-insight-report-2018.pdf. Accessed 1 Dec. 2019.
+$\\$
+$\\$
+Engagement rings take three months to find and cost an average $5,800." Marketing to Women: Addressing Women and Women's Sensibilities, Sept. 2009, p. 6. Gale General OneFile. Retrieved from https://link.gale.com/apps/doc/A207644584/ITOF?u=ucalgary&sid=ITOF&xid=58fa9de2. Accessed 1 Dec. 2019.
+
+</br>
